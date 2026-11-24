@@ -1,0 +1,31 @@
+name: ops-deploy
+on:
+  workflow_call:
+    inputs:
+      slug:
+        required: true
+        type: string
+      env:
+        required: false
+        type: string
+        default: dev
+    secrets:
+      OPS_RUNNER_TOKEN:
+        required: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: trigger ops-console
+        run: |
+          TOKEN="${{ secrets.OPS_RUNNER_TOKEN }}"
+          if [ -z "$TOKEN" ]; then TOKEN=$(cat ~/.config/ops-console/runner-token); fi
+          for i in 1 2 3 4 5 6; do
+            if curl -sk --max-time 10 -X POST "https://127.0.0.1:18088/api/webhooks/local" \
+              -H "X-Ops-Token: $TOKEN" -H "Content-Type: application/json" \
+              -d "{\"slug\":\"${{ inputs.slug }}\",\"ref\":\"main\"}"; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
